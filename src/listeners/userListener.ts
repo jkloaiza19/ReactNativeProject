@@ -1,4 +1,4 @@
-import { AppStartListening } from './listenerMiddleware'
+import type { AppStartListening } from './listenerMiddleware'
 import {
   fetchUser,
   setUser,
