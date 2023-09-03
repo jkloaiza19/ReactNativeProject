@@ -1,8 +1,8 @@
 import { configureStore, applyMiddleware, compose } from '@reduxjs/toolkit'
-import createSagaMiddleware from 'redux-saga'
+// import createSagaMiddleware from 'redux-saga'
 import { createLogger } from 'redux-logger'
 import rootReducer from './src/redux/rootReducer'
-import rootSaga from './src/sagas/rootSaga'
+// import rootSaga from './src/sagas/rootSaga'
 import { listenerMiddleware } from './src/listeners/listenerMiddleware'
 
 // create the saga middleware
