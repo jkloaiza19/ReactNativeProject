@@ -1,45 +1,687 @@
-# Use the latest 2.1 version of CircleCI pipeline process engine.
-# See: https://circleci.com/docs/configuration-reference
 version: 2.1
-orbs:
-  node: circleci/node@5.0.2
 
-# Define a job to be invoked later in a workflow.
-# See: https://circleci.com/docs/configuration-reference/#jobs
+orbs:
+  rn: react-native-community/react-native@7.1.1
+  coveralls: coveralls/coveralls@1.0.6
+  gh: circleci/github-cli@2.1.1
+  slack: circleci/slack@4.10.1
+  node: circleci/node@5.0.3
+  ruby: circleci/ruby@2.0.0
+
+parameters:
+  create_release:
+    type: boolean
+    default: false
+    description: |
+      A boolean value that decides which worflow to run
+      By default this is false and will run the feature_test workflow
+      Set to true to trigger the create_release workflow
+  release_version:
+    type: string
+    default: ""
+    description: |
+      Takes a string in a format of X.XX. This will become formatted to rc-X.XX
+      This is the current release version we are intiating the release process for
+      The release branch for rc-X.XX will be created, as well as the subsequent PR
+  next_release_version:
+    type: string
+    default: ""
+    description: |
+      Takes a string in a format of X.XX. This will become formatted to vX.XX
+      This creates the version branch for the next release
+      This branch will be used for merges while develop is locked
+
+defaults: &defaults
+  working_directory: ~/ReactNativeProject
+  docker:
+    - image: cimg/node:14.17.0
+  resource_class: large
+
+ios_defaults: &ios_defaults
+  working_directory: ~/ReactNativeProject
+  macos:
+    xcode: "14.2.0"
+  resource_class: macos.x86.medium.gen2
+
+android_defaults: &android_defaults
+  working_directory: ~/ReactNativeProject
+  docker:
+    - image: cimg/android:2022.12-node
+  environment:
+    # Memory allocation pool for Java Virtual Machine
+    # dex process is very heavy so we need at least 2048M so the daemon to work properly
+    - JAVA_OPTS: "-Xms512m -Xmx2g"
+
+commands:
+  e2e_setup:
+    description: Boilerplate setup for running the e2e tests
+    steps:
+        - checkout:
+            path: ~/ReactNativeProject/   
+        - node/install:
+            install-yarn: true
+        - node/install-packages:
+            pkg-manager: yarn
+        - run:
+            name: Install applesimutils to change app permissions
+            command: brew tap wix/brew && brew install wix/brew/applesimutils
+        - run: npm install -g npm@latest
+  set-ruby-ios:
+    description: Installs and sets the correct ruby version for iOS
+    steps:
+        - run:
+            name: Set Ruby version
+            command: echo "ruby-3.0" > ~/.ruby-version
 jobs:
-  build-and-test:
-    # macos:
-      # xcode: 14.2.0
-    # Specify the execution environment. You can specify an image from Docker Hub or use one of our convenience images from CircleCI's Developer Hub.
-    # See: https://circleci.com/docs/configuration-reference/#executor-job
-    # docker:
-    #  - image: circleci/node@5.0.2
-    executor: node/default
-    # Add steps to the job
-    # See: https://circleci.com/docs/configuration-reference/#steps
+  node:
+    <<: *defaults
     steps:
       - checkout
+      # runs yarn command w/ caching enabled
       - node/install-packages:
           pkg-manager: yarn
       - run:
-          name: Install Dependencies
-          command: yarn install
+          name: Run ESLint
+          command: yarn eslint src/ --format junit -o reports/junit/js-lint-results.xml
+      - run:
+          name: Run Jest
+          command: |
+            yarn test --maxWorkers=2 --ci --reporters=default --reporters=jest-junit
+            if [[ "${CIRCLE_BRANCH}" != "production"  || "${CIRCLE_BRANCH}" != rc-*.* ]]
+            then
+              echo "Running test coverage for changed files only on branch"
+              yarn test --coverage --maxWorkers=2 --ci --reporters=default --reporters=jest-junit
+            fi
+          environment:
+            JEST_JUNIT_OUTPUT: "reports/junit/js-test-results.xml"
+      - persist_to_workspace:
+          root: ~/ReactNativeProject
+          paths:
+            - node_modules
+      - store_test_results:
+          path: reports/junit
+      - store_artifacts:
+          path: reports/junit
+      - store_artifacts:
+          path: coverage/
+      - run: |
+          if ! [[ -s ./coverage/lcov.info ]]
+          then
+            echo "No test coverage to upload to coveralls"
+            circleci-agent step halt
+          fi
+      - coveralls/upload
 
-     # - run:
-     #     name: Build Android APK
-     #     command: yarn build:android
+  ios_alpha:
+    <<: *ios_defaults
+    environment:
+      - LC_ALL: "en_US.UTF-8"
+      - LANG: "en_US.UTF-8"
+      - HOMEBREW_NO_AUTO_UPDATE: 1
+    shell: /bin/bash --login -o pipefail
+    steps:
+      - checkout
+      - set-ruby-ios
+      # this will use .nvmrc
+      - node/install:
+          install-yarn: true
+      - node/install-packages:
+          pkg-manager: yarn
+      - restore_cache:
+          key: bundle-v1-{{ checksum "Gemfile.lock" }}-{{ arch }}
+      - run:
+          name: Install imagemagick to create app icon badge
+          command: brew install imagemagick
+      - run:
+          name: Set bundle path
+          command: bundle config set path vendor/bundle
+      - run:
+          command: bundle check || bundle install
+      - save_cache:
+          key: bundle-v1-{{ checksum "Gemfile.lock" }}-{{ arch }}
+          paths:
+            - vendor/bundle
 
-      - run: 
+      # From Circle docs:
+      # https://circleci.com/docs/2.0/testing-ios/#optimizing-cocoapods
+
+      # In addition to the basic setup steps, it is best practice to use
+      # Cocoapods 1.8 or newer which allows the use of the CDN, rather than
+      # having to clone the entire Specs repo. This will allow you to install
+      # pods faster, reducing build times. If you are using Cocoapods 1.7 or
+      # older, consider upgrading to 1.8 or newer as this change allows for much
+      # faster job execution of the pod install step.
+
+      # Using Circle Specs repo is deprecated
+      # https://support.circleci.com/hc/en-us/articles/360045898974-Cocoapods-Spec-Repo-is-Outdated
+      - run:
+          name: Install CocoaPods
           command: bundle exec pod install
           working_directory: ios
-
       - run:
-          name: Build iOS App
-          command: yarn build:ios     
+          name: Setup .env file for React Native Config
+          command: ./circleci-pre-build.sh
 
-# Orchestrate jobs using workflows.
-# See: https://circleci.com/docs/configuration-reference/#workflows
+      # we have to add the ssh key to access mobile_certificates repo.
+      # the key can be updated here https://app.circleci.com/settings/project/github/MyApp/ReactNativeProject/ssh
+      - add_ssh_keys:
+          fingerprints:
+            - ""
+      - run:
+          name: Build and upload to AppCenter
+          command: bundle exec fastlane ios build_alpha_app
+          no_output_timeout: 30m
+      - store_artifacts:
+          path: ./build/MyApp.ipa
+
+  ios_beta:
+    <<: *ios_defaults
+    environment:
+      - LC_ALL: "en_US.UTF-8"
+      - LANG: "en_US.UTF-8"
+      - HOMEBREW_NO_AUTO_UPDATE: 1
+    shell: /bin/bash --login -o pipefail
+    steps:
+      - checkout
+      - set-ruby-ios
+      # this will use .nvmrc
+      - node/install:
+          install-yarn: true
+      - node/install-packages:
+          pkg-manager: yarn
+      - restore_cache:
+          key: bundle-v1-{{ checksum "Gemfile.lock" }}-{{ arch }}
+      - run:
+          name: Install imagemagick to create app icon badge
+          command: brew install imagemagick
+      - run:
+          name: Set bundle path
+          command: bundle config set path vendor/bundle
+      - run:
+          command: bundle check || bundle install
+      - save_cache:
+          key: bundle-v1-{{ checksum "Gemfile.lock" }}-{{ arch }}
+          paths:
+            - vendor/bundle
+
+      # From Circle docs:
+      # https://circleci.com/docs/2.0/testing-ios/#optimizing-cocoapods
+
+      # In addition to the basic setup steps, it is best practice to use
+      # Cocoapods 1.8 or newer which allows the use of the CDN, rather than
+      # having to clone the entire Specs repo. This will allow you to install
+      # pods faster, reducing build times. If you are using Cocoapods 1.7 or
+      # older, consider upgrading to 1.8 or newer as this change allows for much
+      # faster job execution of the pod install step.
+
+      # Using Circle Specs repo is deprecated
+      # https://support.circleci.com/hc/en-us/articles/360045898974-Cocoapods-Spec-Repo-is-Outdated
+      - run:
+          name: Install CocoaPods
+          command: bundle exec pod install
+          working_directory: ios
+      - run:
+          name: Setup .env file for React Native Config
+          command: ./circleci-pre-build.sh
+      - run:
+          name: Build and upload to TestFlight
+          command: bundle exec fastlane ios build_beta_app
+          no_output_timeout: 1h
+      - store_artifacts:
+          path: ./build/MyApp.ipa
+      - slack/notify:
+          ReactNativeProject: ""
+          event: fail
+          template: basic_fail_1
+
+  ios_release:
+    <<: *ios_defaults
+    environment:
+      - LC_ALL: "en_US.UTF-8"
+      - LANG: "en_US.UTF-8"
+      - HOMEBREW_NO_AUTO_UPDATE: 1
+    shell: /bin/bash --login -o pipefail
+    steps:
+      - checkout
+      - set-ruby-ios
+      # this will use .nvmrc
+      - node/install:
+          install-yarn: true
+      - node/install-packages:
+          pkg-manager: yarn
+      - restore_cache:
+          key: bundle-v1-{{ checksum "Gemfile.lock" }}-{{ arch }}
+      - run:
+          name: Set bundle path
+          command: bundle config set path vendor/bundle
+      - run:
+          command: bundle check || bundle install
+      - save_cache:
+          key: bundle-v1-{{ checksum "Gemfile.lock" }}-{{ arch }}
+          paths:
+            - vendor/bundle
+
+      # From Circle docs:
+      # https://circleci.com/docs/2.0/testing-ios/#optimizing-cocoapods
+
+      # In addition to the basic setup steps, it is best practice to use
+      # Cocoapods 1.8 or newer which allows the use of the CDN, rather than
+      # having to clone the entire Specs repo. This will allow you to install
+      # pods faster, reducing build times. If you are using Cocoapods 1.7 or
+      # older, consider upgrading to 1.8 or newer as this change allows for much
+      # faster job execution of the pod install step.
+
+      # Using Circle Specs repo is deprecated
+      # https://support.circleci.com/hc/en-us/articles/360045898974-Cocoapods-Spec-Repo-is-Outdated
+      - run:
+          name: Install CocoaPods
+          command: bundle exec pod install
+          working_directory: ios
+      - run:
+          name: Setup .env file for React Native Config
+          command: ./circleci-pre-build.sh
+      - run:
+          name: Build and upload to TestFlight
+          command: bundle exec fastlane ios build_release_app
+          no_output_timeout: 1h
+      - store_artifacts:
+          path: ./build/MyApp.ipa
+
+  ios_test:
+    <<: *ios_defaults
+    environment:
+      - LC_ALL: "en_US.UTF-8"
+      - LANG: "en_US.UTF-8"
+      - HOMEBREW_NO_AUTO_UPDATE: 1
+    shell: /bin/bash --login -o pipefail
+    steps:
+      - checkout
+      - set-ruby-ios
+      # this will use .nvmrc
+      - node/install:
+          install-yarn: true
+      - node/install-packages:
+          pkg-manager: yarn
+      - restore_cache:
+          key: bundle-v1-{{ checksum "Gemfile.lock" }}-{{ arch }}
+      - run:
+          name: Set bundle path
+          command: bundle config set path vendor/bundle
+      - run:
+          command: bundle check || bundle install
+      - save_cache:
+          key: bundle-v1-{{ checksum "Gemfile.lock" }}-{{ arch }}
+          paths:
+            - vendor/bundle
+      - run:
+          name: Setup .env file for React Native Config
+          command: ./circleci-pre-build.sh
+      - rn/pod_install
+      - rn/ios_build:
+          build_configuration: Beta
+          device: iPhone SE (3rd generation)
+          project_path: ios/MyApp.xcworkspace
+          project_type: workspace
+          scheme: MyApp
+          cache: false
+      - run:
+          name: Move app to MTA directory
+          command: mv ios/build/Build/Products/Beta-iphonesimulator/"MyApp BETA.app" ~/ReactNativeProject/MobileTestAutomation/apps/
+          no_output_timeout: 25m
+      - persist_to_workspace:
+          root: ~/ReactNativeProject
+          paths:
+            - MobileTestAutomation/apps
+      - run:
+          name: Create MTA artifacts directory to persist "MyApp BETA.app"
+          command: mkdir /tmp/artifacts
+      - run:
+          name: Compress "MyApp BETA.app"
+          command: tar -cvzf "MyApp BETA.app.tar" ~/ReactNativeProject/MobileTestAutomation/apps/"MyApp BETA.app"
+      - store_artifacts:
+          path: "MyApp BETA.app.tar"
+          destination: /tmp/artifacts
+
+  ios_e2e_all:
+    <<: *ios_defaults
+    working_directory: ~/ReactNativeProject/MobileTestAutomation
+    parallelism: 2
+    steps:
+      - e2e_setup
+      - attach_workspace:
+          at: ~/ReactNativeProject
+      - run:
+          name: Create MTA artifacts directory for e2e screenshots and videos
+          command: mkdir /tmp/artifacts
+      - run:
+          name: Run all E2E in parallel
+          command: |
+            echo $(circleci tests glob tests/**/*.spec.js)
+            TEST=$(circleci tests glob tests/**/*.spec.js | circleci tests split --split-by=timings)
+            yarn run ios.app --spec $TEST
+          no_output_timeout: 5m
+      - store_artifacts:
+          path: /tmp/artifacts
+
+  android_alpha:
+    <<: *android_defaults
+    resource_class: large
+    environment: # For now we're keeping the same API Keys for 3rd party, will revisit later
+      - API_URL: 
+    steps:
+      - checkout
+      - ruby/install:
+          version: $(cat ./.ruby-version)
+      # this will use .nvmrc
+      - node/install:
+          install-yarn: true
+      - run:
+          name: Install imagemagick to create app icon badge
+          command: sudo apt install imagemagick
+      - node/install-packages:
+          pkg-manager: yarn
+      - ruby/install-deps
+      - run:
+          name: Setup .env file for React Native Config
+          command: ./circleci-pre-build.sh
+      - run:
+          name: Build and upload to AppCenter
+          command: bundle exec fastlane android build_alpha_app
+          no_output_timeout: 30m
+      - store_artifacts:
+          path: ./android/app/build/outputs/apk/alpha/MyApp-alpha.apk
+
+  android_beta:
+    <<: *android_defaults
+    resource_class: large
+    environment: # For now we're keeping the same API Keys for 3rd party, will revisit later
+      - API_URL: 
+      - checkout
+      - ruby/install:
+          version: $(cat ./.ruby-version)
+      # this will use .nvmrc
+      - node/install:
+          install-yarn: true
+      - run:
+          name: Install imagemagick to create app icon badge
+          command: sudo apt install imagemagick
+      - node/install-packages:
+          pkg-manager: yarn
+      - ruby/install-deps
+      - run:
+          name: Setup .env file for React Native Config
+          command: ./circleci-pre-build.sh
+      - run:
+          name: Re-create Android signing files
+          command: echo "${ANDROID_PLAY_STORE_BETA_KEY}" | base64 --decode > "android/app/${ANDROID_PLAY_STORE_BETA_KEY_NAME}.keystore"
+      - run:
+          name: Build and upload to Google Play Store
+          command: bundle exec fastlane android build_beta_app
+          no_output_timeout: 30m
+      - store_artifacts:
+          path: ./android/app/build/outputs/bundle/beta/MyApp-beta.aab
+      - slack/notify:
+          ReactNativeProject: ""
+          event: fail
+          template: basic_fail_1
+
+  android_release:
+    <<: *android_defaults
+    resource_class: large
+    environment:
+      - API_URL: ""
+    steps:
+      - checkout
+      - ruby/install:
+          version: $(cat ./.ruby-version)
+      # this will use .nvmrc
+      - node/install:
+          install-yarn: true
+      - node/install-packages:
+          pkg-manager: yarn
+      - ruby/install-deps
+      - run:
+          name: Setup .env file for React Native Config
+          command: ./circleci-pre-build.sh
+      - run:
+          name: Re-create Android signing files
+          command: echo "${ANDROID_PLAY_STORE_RELEASE_KEY}" | base64 --decode > "android/app/${ANDROID_PLAY_STORE_RELEASE_KEY_NAME}.keystore"
+      - run:
+          name: Build and upload to Google Play Store
+          command: bundle exec fastlane android build_release_app
+          no_output_timeout: 30m
+      - store_artifacts:
+          path: ./android/app/build/outputs/bundle/release/MyApp.aab
+
+  notify_testers:
+    <<: *defaults
+    steps:
+      - checkout
+      - run:
+          name: Install node dependencies
+          command: yarn install
+      - run:
+          name: Move all tickets to 'RELEASE VERIFICATION' on the Release Kanban Board
+          command: |
+            chmod u+x ./.circleci/scripts/updateJiraStatus.js
+            node ./.circleci/scripts/updateJiraStatus.js ${CIRCLE_BRANCH#*-} 'Release Branch Verification'
+      - slack/notify:
+          channel: ""
+          event: pass
+          custom: |
+            {
+              "blocks": [
+                {
+                  "type": "section",
+                  "text": {
+                    "type": "mrkdwn",
+                    "text": "`${CIRCLE_BRANCH#*-}` beta builds are ready for testing :test_tube:"
+                  }
+                }
+              ]
+            }
+      - slack/notify:
+          channel: ""
+          event: fail
+          template: basic_fail_1
+
+  update_dev_branches:
+    <<: *ios_defaults
+    shell: /bin/bash --login -o pipefail
+    steps:
+      - checkout
+      - run:
+          name: Sync all dev branches with develop
+          command: ./circleci-update-dev-branches.sh
+          no_output_timeout: 30s
+
+  create_release:
+    <<: *defaults
+    steps:
+      - checkout
+      - run:
+          name: Install node dependencies
+          command: yarn install
+      - slack/notify:
+          channel: ""
+          custom: |
+            {
+              "blocks": [
+                {
+                  "type": "section",
+                  "text": {
+                    "type": "mrkdwn",
+                    "text": "The release process for `<< pipeline.parameters.release_version>>` has started, please halt all merges to develop and point PRs to branch `v<< pipeline.parameters.next_release_version>>` until further notice :rocket:"
+                  }
+                }
+              ]
+            }
+      - gh/setup
+      - run:
+          name: Create version branch for the next release
+          command: |
+            git fetch
+            git checkout origin/develop
+
+            # only create version branch if one doesn't already exist
+            git ls-remote --heads origin v<< pipeline.parameters.next_release_version >>  >> version_branch.txt
+            VERSION_BRANCH=version_branch.txt
+            if [[ -z "$(cat ${VERSION_BRANCH})" ]]
+            then
+              git checkout -B v<< pipeline.parameters.next_release_version >>
+              git push --set-upstream origin v<< pipeline.parameters.next_release_version >>
+            fi
+      - run:
+          name: Create release candidate branch
+          command: |
+            git config --global user.email "integration@MyApp.com"
+            git config --global user.name "Circle Executor"
+
+            git fetch
+            git checkout develop
+            git checkout -b rc-<< pipeline.parameters.release_version >>
+
+            chmod u+x ./.circleci/scripts/versionAppAndChangelog.js
+            # update the app version in app.json and package.json and update the changelog
+            node ./.circleci/scripts/versionAppAndChangelog.js << pipeline.parameters.release_version >>
+
+            echo 'export CHANGELOG_NOTES="$(cat './.circleci/scripts/changelogNotes.md')"' >> $BASH_ENV
+            source $BASH_ENV
+
+            echo "export RELEASE_NOTES='$(cat './.circleci/scripts/releaseNotes.md' | jq -aRs | sed 's/\\"//g' | sed 's/\"//g')'" >> $BASH_ENV
+            source $BASH_ENV
+
+            echo "Release notes are:"
+            echo $RELEASE_NOTES
+
+            git add app.json package.json CHANGELOG.md
+            git commit -m "rc-<< pipeline.parameters.release_version >>"
+
+            # delete remote branch if one exists and sleep for 10 seconds so the rc candidate PR has time to close
+            git ls-remote --heads origin rc-<< pipeline.parameters.release_version >>  >> release_branch.txt
+            RELEASE_BRANCH=release_branch.txt
+            if ! [[ -z "$(cat ${RELEASE_BRANCH})" ]]
+            then
+              git push origin --delete rc-<< pipeline.parameters.release_version >>
+              sleep 10
+            fi
+
+            git push --set-upstream origin rc-<< pipeline.parameters.release_version >>
+      - run:
+          name: Create release candidate PR
+          command: |
+            gh pr create --title "rc-<< pipeline.parameters.release_version >>" \
+                        --body "$CHANGELOG_NOTES" \
+                        --reviewer "MyApp/mobile-release-managers" \
+                        --label "release" \
+                        --base production
+      - run:
+          name: Move all tickets to 'IN RELEASE' on the Release Kanban Board (https://MyApp.atlassian.net/jira/software/c/projects/MOB/boards/53)
+          command: |
+            chmod u+x ./.circleci/scripts/updateJiraStatus.js
+            node ./.circleci/scripts/updateJiraStatus.js << pipeline.parameters.release_version >> 'Merged to Release Branch'
+      - slack/notify:
+          ReactNativeProject: ""
+          event: pass
+          custom: |
+            {
+              "blocks": [
+                {
+                  "type": "section",
+                  "text": {
+                    "type": "mrkdwn",
+                    "text": "$RELEASE_NOTES \n <@user>"
+                  }
+                }
+              ]
+            }
+      - slack/notify:
+          ReactNativeProject: ""
+          event: fail
+          template: basic_fail_1
+
+notify:
+  webhooks:
+    - url: https://coveralls.io/webhook?repo_token=${COVERALLS_REPO_TOKEN}
+
 workflows:
-  build-and-test-workflow:
+  version: 2
+  feature_test:
+    unless: << pipeline.parameters.create_release >>
     jobs:
-      - build-and-test
+      - node
+      - ios_alpha:
+          requires:
+            - node
+          filters:
+            branches:
+              ignore:
+                - develop
+                - /rc-.*/
+                - production
+                - /v[0-9]*.[0-9]*/
+      - android_alpha:
+          requires:
+            - node
+          filters:
+            branches:
+              ignore:
+                - develop
+                - /rc-.*/
+                - production
+                - /v[0-9]*.[0-9]*/
+      - ios_beta:
+          requires:
+            - node
+          filters:
+            branches:
+              only:
+                - /rc-.*/
+                - /fix-.*/
+      - android_beta:
+          requires:
+            - node
+          filters:
+            branches:
+              only:
+                - /rc-.*/
+                - /fix-.*/
+      - notify_testers:
+          requires:
+            - ios_beta
+            - android_beta
+          filters:
+            branches:
+              only:
+                - /rc-.*/
+      - ios_test:
+          requires:
+            - node
+      -  ios_e2e_all:
+          requires:
+            - ios_test
+      - ios_release:
+          requires:
+            - node
+          filters:
+            branches:
+              only:
+                - production
+      - android_release:
+          requires:
+            - node
+          filters:
+            branches:
+              only:
+                - production
+      - update_dev_branches:
+          requires:
+            - node
+          filters:
+            branches:
+              only:
+                - develop
+  create_release:
+    when: << pipeline.parameters.create_release >>
+    jobs:
+      - create_release
