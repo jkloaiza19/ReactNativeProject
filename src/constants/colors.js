@@ -8,3 +8,5 @@ export const WHITE = '#FFFFFF'
 
 export const SHARK = '#242526'
 
+export const purple = '#BB86FC'
+
