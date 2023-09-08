@@ -51,7 +51,8 @@ jobs:
       xcode: 14.2.0
     environment:
       FL_OUTPUT_DIR: output
-      FASTLANE_LANE: test
+      FASTLANE_LANE_TEST: test_ios
+      FASTLANE_LANE_BUILD: build_ios
 
     steps:
       - checkout
@@ -74,7 +75,7 @@ jobs:
             - node_modules
 
       - restore_cache:
-          key: bundle-ios-v1-{{ checksum "ios/Podfile.lock" }}-{{ arch }}
+          key: bundle-v1-{{ checksum "ios/Gemfile.lock" }}-{{ arch }}
 
       #Pods directory is ignored to match default RN setup, but can also check them into source control
       #https://guides.cocoapods.org/using/using-cocoapods.html#should-i-check-the-pods-directory-into-source-control
@@ -90,7 +91,7 @@ jobs:
           working_directory: ios
 
       - save_cache:
-          key: bundle-ios-v1-{{ checksum "ios/Podfile.lock" }}-{{ arch }}
+          key: bundle-v1-{{ checksum "ios/Gemfile.lock" }}-{{ arch }}
           paths:
             - vendor/bundle
 
@@ -100,9 +101,14 @@ jobs:
             - ios/Pods
 
       - run:
-          name: Fastlane
-          command: bundle exec fastlane $FASTLANE_LANE
+          name: Run tests for the iOS app
+          command: bundle exec fastlane $FASTLANE_LANE_TEST
           working_directory: ios
+
+      - run:
+          name: Build the iOS app
+          command: bundle exec fastlane $FASTLANE_LANE_BUILD
+          working_directory: ios    
 
       - store_artifacts:
           path: output

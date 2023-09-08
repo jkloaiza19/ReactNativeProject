@@ -1,0 +1,63 @@
+# This file contains the fastlane.tools configuration
+# You can find the documentation at https://docs.fastlane.tools
+#
+# For a list of all available actions, check out
+#
+#     https://docs.fastlane.tools/actions
+#
+# For a list of all available plugins, check out
+#
+#     https://docs.fastlane.tools/plugins/available-plugins
+#
+
+# Uncomment the line if you want fastlane to automatically update itself
+# update_fastlane
+
+default_platform(:ios)
+
+platform :ios do
+  before_all do
+    # Actions to perform before running any lane
+  end
+
+  desc "Build the iOS app"
+  lane :build_ios do
+    # Add your build commands here
+    # Example:
+    # gym(
+    #   scheme: "YourApp",
+    #   configuration: "Release"
+    # )
+  end
+
+  desc "Run tests for the iOS app"
+  lane :test_ios do
+    # Add your test commands here
+    # Example:
+    # scan(
+    #   scheme: "YourApp",
+    #   configuration: "Release",
+    #   device: "iPhone 11"
+    # )
+  end
+
+  desc "Deploy the iOS app to TestFlight"
+  lane :deploy_to_testflight do
+    # Add your deployment commands here
+    # Example:
+    # pilot(
+    #   distribute_external: true,
+    #   groups: ["Testers"],
+    #   skip_waiting_for_build_processing: true
+    # )
+  end
+
+  error do |lane, exception|
+    # Handle errors that occur in any lane
+    UI.error("Error in lane #{lane}: #{exception.message}")
+  end
+
+  after_all do
+    # Actions to perform after running all lanes
+  end
+end
