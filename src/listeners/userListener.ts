@@ -24,7 +24,7 @@ export const userListeners = (startListening:AppStartListening): void => {
       try {
         const userData = await getUser(action.payload.id)
 
-        listenerApi.dispatch(setUser(formatUserData(userData)))
+        listenerApi.dispatch(setUser(userData))
       } catch (error) {
         listenerApi.dispatch(fetchUserFailure(error))
       }

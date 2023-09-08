@@ -1,3 +1,5 @@
+import type { ActionCreatorWithPayload } from '@reduxjs/toolkit'
+
 export enum employmentStatus {
   unemployed,
   employed,
@@ -7,22 +9,21 @@ export enum employmentStatus {
 
 export type featureFlags = Record<string, string>
 
+export type Payload = Record<string, unknown>
+
+export type FetchUser = ActionCreatorWithPayload<{ id: number }, string>
+
 export interface IUser {
-  // id: string | number
-  // name: string
-  // lastName: string
-  // email: string
-  // employmentStatus: employmentStatus | null
-  // featureFlags?: featureFlags | {}
-  name: string
-  hair: string
-  dob: string
-  gender: string
-  mass: string
+  id?: number | string | null
+  firstName: string
+  lastName: string
+  email: string
+  createdAt?: Date | null
+  updatedAt?: Date | null
+  password?: string | null
 }
 
 export interface IUserState extends IUser{
-  // user: IUser
   loading: boolean
   loaded: boolean
   error: string

@@ -17,6 +17,9 @@ import {
   View,
 } from 'react-native'
 
+import { ThemeProvider } from '@rneui/themed'
+import { SafeAreaProvider } from 'react-native-safe-area-context'
+
 import { library } from '@fortawesome/fontawesome-svg-core'
 import { fab } from '@fortawesome/free-brands-svg-icons'
 import { fas } from '@fortawesome/free-solid-svg-icons'
@@ -36,15 +39,16 @@ library.add(fab, fas, faSquareCheck, faMugSaucer)
 
 function App(): JSX.Element {
   const isDarkMode = useColorScheme() === 'dark'
+
   return (
-    <SafeAreaView style={{flex: 1}}>
+    <SafeAreaProvider style={{flex: 1}}>
       <StatusBar
         barStyle={isDarkMode ? 'light-content' : 'dark-content'}
       />
         <Provider store={store}>
-          <RootNavigation />
+            <RootNavigation />
         </Provider>
-    </SafeAreaView> 
+    </SafeAreaProvider> 
   )
 }
 

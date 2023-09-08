@@ -1,7 +1,11 @@
-import { IUser } from '../../redux/user/schema'
+import type { FetchUser } from '../../redux/user/schema'
+import { IUserState } from '../../redux/user/schema'
+import type { Navigation } from '../../schemas/globalSchemas'
+import type { IAuthState, SignOutAction } from '../../redux/auth/schema'
 
 export interface IHomeState {
-  user: IUser
+  user: IUserState
+  auth: IAuthState
 }
 
 export interface IHomeStateProps extends IHomeState {
@@ -9,6 +13,8 @@ export interface IHomeStateProps extends IHomeState {
 }
 
 export interface IHomeComponentProps extends IHomeStateProps {
-  navigation: Record<string, string>
-  fetchUser: () => void
+  navigation: Navigation
+  fetchUser: FetchUser
+  signOut: SignOutAction
+  auth: IAuthState
 }

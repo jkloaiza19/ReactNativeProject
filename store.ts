@@ -1,6 +1,8 @@
 import { configureStore, applyMiddleware, compose } from '@reduxjs/toolkit'
 // import createSagaMiddleware from 'redux-saga'
 import { createLogger } from 'redux-logger'
+// import logger from 'redux-logger'
+
 import rootReducer from './src/redux/rootReducer'
 // import rootSaga from './src/sagas/rootSaga'
 import { listenerMiddleware } from './src/listeners/listenerMiddleware'
@@ -10,7 +12,7 @@ import { listenerMiddleware } from './src/listeners/listenerMiddleware'
 // const middleware = [sagaMiddleware]
 const middleware = []
 
-if (__DEV__ && process.env.NODE_ENV !== 'test') {
+if (process.env.NODE_ENV === 'development') {
   // create logger
   const logger = createLogger({ collapsed: true })
 
@@ -34,5 +36,9 @@ const store = configureStore({
 export type RootState = ReturnType<typeof store.getState>
 
 export type AppDispatch = typeof store.dispatch
+
+export const { dispatch } = store
+
+export const state = store.getState()
 
 export default store

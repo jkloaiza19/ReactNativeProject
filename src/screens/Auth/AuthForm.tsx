@@ -1,5 +1,5 @@
 import React, { useState } from 'react'
-import { View, Text, TouchableOpacity } from 'react-native'
+import { View, Text,  NativeSyntheticEvent, TextInputChangeEventData } from 'react-native'
 
 // components
 import IconComponent from '../../components/IconComponent'
@@ -7,15 +7,20 @@ import IconComponent from '../../components/IconComponent'
 // Material components
 import {
   VStack,
-  Button,
-  TextInput,
+  // Button,
+  // TextInput,
   // Text,
   IconButton,
   ActivityIndicator,
 } from '@react-native-material/core'
 
+import { Button, Input, Icon } from '@rneui/themed'
+
 // constants
 import { LOGIN_SCREEN, SIGNUP_SCREEN } from '../../navigation/_common/routes'
+
+// schema
+import { Params } from '../../schemas/globalSchemas'
 
 // styles
 import styles from './AuthForm.styles'
@@ -23,11 +28,21 @@ import styles from './AuthForm.styles'
 type Props = {
   isLogin: boolean
   navigation: Record<string, any>
+  isLoading: boolean
+  submitAction: (params: Params) => void
 }
 
-export const AuthForm = ({ isLogin, navigation }: Props): React.ReactElement => {
+interface IFormState {
+  email: string
+  password: string
+}
+
+export const AuthForm = ({ isLogin, navigation, submitAction, isLoading }: Props): React.ReactElement => {
   // state
-  const [showPassword, setShowPassword] = useState(false)
+  const [formState, setFormState] = useState<IFormState>({
+    email: '',
+    password: '',
+  })
 
   const submitText = isLogin ? 'Login' : 'Signup'
   const helperText = isLogin
@@ -36,36 +51,60 @@ export const AuthForm = ({ isLogin, navigation }: Props): React.ReactElement => 
   const helperButtonText = isLogin
    ? 'Signup'
    : 'Login'
-  const submitAction = () => navigation.replace('root')
-  const helperButtonAction = () => navigation.navigate(isLogin ? SIGNUP_SCREEN.name : LOGIN_SCREEN.name)
+
+  const handleChange = (key: keyof typeof formState) =>
+    (e: NativeSyntheticEvent<TextInputChangeEventData>) => {
+      setFormState({
+        ...formState,
+        [key]: e.nativeEvent.text,
+      })
+    }
+
+  const helperButtonAction = () => navigation.replace(isLogin ? SIGNUP_SCREEN.name : LOGIN_SCREEN.name)
+  const { email, password } = formState
 
   return (
     <View style={styles.formContainer}>
+       <Text>email: {email}</Text>
+       <Text>password: {password}</Text>
       <VStack m={4} spacing={4}>
-        <TextInput
-          label="Email"
-          variant="outlined"
-          keyboardType="email-address"
+         <Input
+          id='email'
           autoCapitalize="none"
-        />
-        <TextInput
-          secureTextEntry={showPassword}
-          autoCapitalize="none"
-          label="Password"
-          variant="outlined"
-          trailing={() => (
-            <TouchableOpacity onPress={() => setShowPassword(!showPassword)}>
-              <IconComponent name="eye" size={22} />
-            </TouchableOpacity>
-          )}
-        />
+          textContentType='emailAddress'
+          leftIcon={
+            <IconComponent name="at" size={24} color={'black'} />
+          }
+          placeholder="Email"
+          onChange={handleChange('email')} />
+        <Input
+          id="password"
+          leftIcon={
+            <IconComponent name="key" size={24} color={'black'} />
+          }
+          placeholder="Password"
+          secureTextEntry={true}
+          onChange={handleChange('password')} />
+
         <View style={{ flexDirection: 'column', alignItems: 'flex-start'}}>
-          <Button title={submitText} onPress={submitAction} />
+        <Button
+            title={submitText}
+            loading={isLoading}
+            loadingProps={{
+              size: 'small',
+              color: styles.buttonLoadingColor.color,
+            }}
+            titleStyle={styles.buttonTitle}
+            buttonStyle={styles.buttonStyle}
+            containerStyle={styles.buttonContainer}
+            disabled={!email || !password || isLoading}
+            onPress={() => submitAction({ email, password })}
+          />
           <Text>
             {helperText}
-            <TouchableOpacity onPress={helperButtonAction}>
+            <Button type="clear" onPress={helperButtonAction}>
               <Text>{helperButtonText}</Text>
-            </TouchableOpacity>
+            </Button>
           </Text>
         </View>
       </VStack>

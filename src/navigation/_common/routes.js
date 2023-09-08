@@ -13,3 +13,7 @@ export const LOGIN_SCREEN = {
 export const SIGNUP_SCREEN = {
   name: 'signup'
 }
+
+export const PLACES_SCREEN = {
+  name: 'places'
+}

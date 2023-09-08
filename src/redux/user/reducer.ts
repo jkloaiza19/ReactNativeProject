@@ -4,22 +4,14 @@ import type { PayloadAction } from '@reduxjs/toolkit'
 import { IUser, IUserState } from './schema'
 
 const initialState: IUserState = {
-  // user: {
-  //   id: '',
-  //   name: '',
-  //   lastName: '',
-  //   email: '',
-  //   employmentStatus: null,
-  //   featureFlags: {},
-  // },
-  name: '',
-  hair: '',
-  dob: '',
-  gender: '',
-  mass: '',
   loading: false,
   loaded: false,
   error: '',
+  createdAt: null,
+  updatedAt: null,
+  email: '',
+  firstName: '',
+  lastName: '',
 }
 
 export const userSlice = createSlice({

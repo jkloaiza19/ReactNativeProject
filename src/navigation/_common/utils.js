@@ -70,3 +70,5 @@ export const canGoBack = () => navigation.canGoBack()
  * configuration to the new screen.
  */
 export const replace = (screen, params = {}) => navigation.replace(screen, params)
+
+export const reset = () => navigation.reset('root')

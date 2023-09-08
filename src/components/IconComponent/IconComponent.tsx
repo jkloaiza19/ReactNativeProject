@@ -12,7 +12,7 @@ type Props = {
  * size, and color using the MaterialCommunityIcons library.
  * @param {Props}  - - `name`: The name of the icon to be displayed.
  */
-export const IconComponent: React.ReactElement = ({ name, size, color }: Props) => (
+export const IconComponent = ({ name, size, color }: Props): React.ReactElement => (
   <FontAwesomeIcon icon={['fas', name]} size={size} color={color} />
 )
 
