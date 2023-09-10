@@ -15,29 +15,29 @@ For _fastlane_ installation instructions, see [Installing _fastlane_](https://do
 
 ## iOS
 
-### ios build_ios
+### ios certificates
 
 ```sh
-[bundle exec] fastlane ios build_ios
+[bundle exec] fastlane ios certificates
 ```
 
-Build the iOS app
+Fetch certificates and provisioning profiles
 
-### ios test_ios
+### ios deploy_ios_alpha_app
 
 ```sh
-[bundle exec] fastlane ios test_ios
+[bundle exec] fastlane ios deploy_ios_alpha_app
 ```
 
-Run tests for the iOS app
+Deploy the iOS alpha app to AppCenter.
 
-### ios deploy_to_testflight
+### ios deploy_ios_beta_app
 
 ```sh
-[bundle exec] fastlane ios deploy_to_testflight
+[bundle exec] fastlane ios deploy_ios_beta_app
 ```
 
-Deploy the iOS app to TestFlight
+Deploy iOS beta app to Testflight.
 
 ----
 

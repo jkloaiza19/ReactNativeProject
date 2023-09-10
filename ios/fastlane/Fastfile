@@ -15,41 +15,191 @@
 
 default_platform(:ios)
 
+#################################################
+## Shared config
+#################################################
+
+app_json_file = File.read("../../app.json")
+app_json = JSON.parse(app_json_file)
+
+android_app_version = app_json['androidAppVersion']
+ios_app_version = app_json['iosAppVersion']
+
+project_name = app_json['name']
+xcode_output_name_browserstack = "MyApp_Browserstack.ipa"
+
+appcenter_app_name = "ReactNativeProject"
+appcenter_owner_name = "jkloaiza19"
+appcenter_destinations = "Collaborators"
+
+test_app_display_name = "ReactNativeProject"
+beta_app_display_name = "ReactNativeProject BETA"
+app_display_name = "myapp"
+
+test_app_bundle_suffix = "test"
+beta_app_bundle_suffix = "beta"
+app_bundle_id = "com.reacttest.app"
+
+#################################################
+# Shared lanes
+#################################################
+
+# Infer app build number for AppCenter builds from the git branch name
+desc "Get AppCenter build number"
+private_lane :get_appcenter_build_number do
+  def build_number
+    def ticket_number
+      git_branch.scan(/\d+/).first # Branch name must include JIRA ticket number
+    end
+
+    def diverging_commit(branch, originating_branch)
+      sha=`git rev-list #{branch} --not #{originating_branch} --abbrev=4 --abbrev-commit | tail -1`.chomp
+      sha.length > 0 ? sha : "HEAD"
+    end
+
+    def count_between(commitA, commitB="HEAD")
+      `git rev-list #{commitA}..#{commitB} --count`.chomp
+    end
+
+    def last_commit
+      `git rev-list --max-count=1 --abbrev=4 --abbrev-commit HEAD`.chomp
+    end
+
+    integration_branch = "develop"
+    diverge_sha=diverging_commit(git_branch, integration_branch)
+    major = ticket_number
+    minor = count_between(diverge_sha, "HEAD")
+    patch = last_commit.to_i(16)
+    "#{major}.#{minor}.#{patch}"
+  end
+
+  build_number
+end
+
+#################################################
+## iOS Lanes
+#################################################
+
 platform :ios do
   before_all do
-    # Actions to perform before running any lane
+    setup_circle_ci
+
+    # Must be a version of Xcode supported by CircleCI
+    # See https://circleci.com/docs/2.0/testing-ios/#supported-xcode-versions
+    # xcodes(
+    #   version: '14',
+    #   select_for_current_build_only: true,
+    # )
+
+    clear_derived_data
   end
 
-  desc "Build the iOS app"
-  lane :build_ios do
-    # Add your build commands here
-    # Example:
-    # gym(
-    #   scheme: "YourApp",
-    #   configuration: "Release"
-    # )
+  #################################################
+  # Config
+  #################################################
+  xcode_scheme = "ReactNativeProject"
+  xcode_output_dir = "./build"
+  xcode_output_name = "ReactNativeProject.ipa"
+  ipa_dir =  "#{xcode_output_dir}/#{xcode_output_name}"
+
+  appstore_username = "jkloaiza19@gmail.com"
+  appstore_team_id = "8CHV89DLFB"
+  appstore_beta_app_id = "6465623839"
+  appstore_app_id="1437305170"
+  #################################################
+
+
+  #################################################
+  # Alpha Build - AppCenter
+  #################################################
+  # Helpful links:
+  # https://circleci.com/docs/deploy-ios-applications/
+
+  # This code block defines a lane called "certificates" that fetches certificates
+  # and provisioning profiles for the iOS app. It uses the `match` action from fastlane,
+  # specifying the type as "appstore" and the app identifier as "com.reacttest.app".
+  # The `readonly` option is set to true, indicating that the certificates
+  # and profiles should not be modified.
+  desc 'Fetch certificates and provisioning profiles'
+  lane :certificates do
+    match(
+      type: 'development',
+      app_identifier: 'com.reacttest.app',
+      force: true
+      # readonly: true
+    )
   end
 
-  desc "Run tests for the iOS app"
-  lane :test_ios do
-    # Add your test commands here
-    # Example:
-    # scan(
-    #   scheme: "YourApp",
-    #   configuration: "Release",
-    #   device: "iPhone 11"
-    # )
+  # desc "Fetch certificates. Build the iOS application."
+  # lane :build_ios_app do |options|
+
+
+  #   gym(
+  #     scheme: "ReactNativeProject",
+  #     workspace: "./#{project_name}.xcworkspace",
+  #     export_method: 'ad-hoc',
+  #     configuration: 'Release',
+  #     output_directory: xcode_output_dir,
+  #     output_name: xcode_output_name,
+  #     include_symbols: true,
+  #     clean: true
+  #   )
+  # end
+
+  desc "Deploy the iOS alpha app to AppCenter."
+  lane :deploy_ios_alpha_app do
+    match(
+      type: 'adhoc',
+      app_identifier: 'com.reacttest.app',
+      readonly: true
+    )
+    
+    gym(
+      scheme: "ReactNativeProject",
+      workspace: "./#{project_name}.xcworkspace",
+      export_method: 'ad-hoc',
+      configuration: 'Debug',
+      output_directory: xcode_output_dir,
+      output_name: xcode_output_name,
+      include_symbols: true,
+      clean: true
+    )
+
+    # Upload build to AppCenter
+    appcenter_upload(
+      api_token: ENV["IOS_APPCENTER_API_TOKEN"],
+      owner_name: appcenter_owner_name,
+      app_name: appcenter_app_name,
+      destinations: appcenter_destinations,
+      ipa: ipa_dir,
+      release_notes: 'Add AppCenter builds for fastlane'
+      # release_notes: app_center_info[:release_notes]
+    )
   end
 
-  desc "Deploy the iOS app to TestFlight"
-  lane :deploy_to_testflight do
-    # Add your deployment commands here
-    # Example:
-    # pilot(
-    #   distribute_external: true,
-    #   groups: ["Testers"],
-    #   skip_waiting_for_build_processing: true
-    # )
+  #################################################
+  # Beta Build - TestFlight
+  #################################################
+
+  desc "Deploy iOS beta app to Testflight."
+  lane :deploy_ios_beta_app do
+    # match here
+    # gym here
+
+    app_store_connect_api_key
+
+    # Upload build to TestFlight
+    pilot(
+      # username: appstore_username,
+      app_identifier: app_release_settings[:app_id],
+      ipa: "#{xcode_output_dir}/#{xcode_output_name}",
+      groups: ["Testers"],
+      notify_external_testers: false,
+      # apple_id: appstore_beta_app_id,
+      # team_id: appstore_team_id,
+      skip_waiting_for_build_processing: true,
+      distribute_external: true
+    )
   end
 
   error do |lane, exception|

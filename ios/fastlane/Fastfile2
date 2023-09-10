@@ -1,0 +1,691 @@
+require 'json'
+
+before_all do
+  setup_circle_ci
+end
+
+#################################################
+## Shared config
+#################################################
+
+app_json_file = File.read("../../app.json")
+app_json = JSON.parse(app_json_file)
+
+android_app_version = app_json['androidAppVersion']
+ios_app_version = app_json['iosAppVersion']
+
+project_name = app_json['name']
+xcode_output_name_browserstack = "MyApp_Browserstack.ipa"
+
+appcenter_owner_name = "myapp"
+appcenter_destinations = "Collaborators,Automation"
+
+test_app_display_name = "MyAppTest"
+beta_app_display_name = "myapp BETA"
+app_display_name = "myapp"
+
+test_app_bundle_suffix = "test"
+beta_app_bundle_suffix = "beta"
+app_bundle_id = "com.testnative"
+
+#################################################
+## Shared lanes
+#################################################
+
+# Infer app build number for AppCenter builds from the git branch name
+desc "Get AppCenter build number"
+private_lane :get_appcenter_build_number do
+  def build_number
+    def ticket_number
+      git_branch.scan(/\d+/).first # Branch name must include JIRA ticket number
+    end
+
+    def diverging_commit(branch, originating_branch)
+      sha=`git rev-list #{branch} --not #{originating_branch} --abbrev=4 --abbrev-commit | tail -1`.chomp
+      sha.length > 0 ? sha : "HEAD"
+    end
+
+    def count_between(commitA, commitB="HEAD")
+      `git rev-list #{commitA}..#{commitB} --count`.chomp
+    end
+
+    def last_commit
+      `git rev-list --max-count=1 --abbrev=4 --abbrev-commit HEAD`.chomp
+    end
+
+    integration_branch = "develop"
+    diverge_sha=diverging_commit(git_branch, integration_branch)
+    major = ticket_number
+    minor = count_between(diverge_sha, "HEAD")
+    patch = last_commit.to_i(16)
+    "#{major}.#{minor}.#{patch}"
+  end
+
+  build_number
+end
+
+desc "Get JIRA ticket id from git branch name"
+private_lane :get_jira_ticket_id do
+  matches = git_branch.scan(/MOB\-\d+/)
+  if matches.any?
+    matches.first
+  else
+    UI.important "Unable to infer JIRA ticket id from branch name."
+    nil
+  end
+end
+
+desc "Append comment to JIRA ticket"
+private_lane :append_comment_to_jira_ticket do |options|
+  ticket_id = get_jira_ticket_id
+  if ticket_id
+    jira(
+      url: "https://myapp.atlassian.net/",
+      username: "api@myapp.com",
+      password: "myjirapassword",
+      ticket_id: ticket_id,
+      comment_text: "Latest #{options[:platform]} build available on AppCenter: #{options[:appcenter_build_number]}"
+    )
+  else
+    UI.important "Unable to append comment to JIRA ticket. Skipping..."
+  end
+end
+
+# Set build config based on ENV['RN_RELEASE_TYPE'] value
+desc "Updates the app identifier, display name and icon for alpha, beta, and production releases"
+private_lane :prep_release_type_shared do |options|
+  current_platform = options[:current_platform]
+
+  app_id = CredentialsManager::AppfileConfig.try_fetch_value(:app_identifier)
+  is_ios_platform = current_platform == "ios"
+
+  # alpha, beta, release, development
+  type = ENV['RN_RELEASE_TYPE'] || 'release'
+
+  case type
+  when 'alpha', 'development'
+    display_name = test_app_display_name
+    suffix = test_app_bundle_suffix
+
+  when 'beta'
+    display_name = beta_app_display_name
+    suffix = beta_app_bundle_suffix
+
+  when 'release'
+    display_name = app_display_name
+    suffix = nil
+
+  else
+    # Error!
+    UI.user_error! "Invalid release type: #{type}"
+  end
+
+  if suffix
+    app_id = "#{app_id}.#{suffix}"
+  end
+
+  app_version = is_ios_platform ? ios_app_version : android_app_version
+
+  UI.message "\n\nSetting display name to: #{display_name}"
+  UI.message "\n\nSetting app identifier to: #{app_id}"
+  UI.message "\n\nSetting app version to: #{app_version}"
+
+  unless type == 'release'
+    # Add badge to app icon
+    UI.message "\n\nUpdating app icon with #{type} badge"
+
+    badge_path = is_ios_platform ? "/ios/**/*.appiconset/*.{png,PNG}" : "/android/app/src/main/res/**/*.{png,PNG}"
+
+    add_badge(
+      glob: badge_path,
+      alpha: type == 'alpha'
+    )
+  end
+
+  {
+    app_id: app_id,
+    app_name: display_name,
+    app_version: app_version,
+    suffix: suffix
+  }
+end
+
+## Get AppCenter release notes and build number
+private_lane :get_appcenter_info do
+  # Get git commit info for AppCenter release notes
+  commit = last_git_commit
+  build_sha = commit[:abbreviated_commit_hash]
+  commit_notes = "Branch: " + git_branch + "\n\n" + build_sha + " -- " + commit[:message]
+  release_notes = (is_ci ? "Automated Release" : "Manual Release") + "\n\n" + commit_notes
+
+  # Get build number based on git branch name
+  appcenter_build_number = get_appcenter_build_number
+  UI.message "\n\nSet build number to #{appcenter_build_number}"
+
+  {
+    release_notes: release_notes,
+    appcenter_build_number: appcenter_build_number
+  }
+end
+
+#################################################
+## iOS Lanes
+#################################################
+
+platform :ios do
+
+  before_all do
+    # Must be a version of Xcode supported by CircleCI
+    # See https://circleci.com/docs/2.0/testing-ios/#supported-xcode-versions
+    xcversion(version: "14.2.0")
+
+    clear_derived_data
+  end
+
+  #################################################
+  # Config
+  #################################################
+  xcode_scheme = "myapp"
+  xcode_output_dir = "./build"
+  xcode_output_name = "myapp.ipa"
+
+  appstore_username = "mobiledev@myapp.com"
+  appstore_team_id = "119309904"
+  appstore_beta_app_id = "1439926922"
+  appstore_app_id="1437305170"
+
+  #################################################
+  # Apple Provisioning Profiles
+  #################################################
+
+  # Use this command when re-generating certificates to add a new device for QA
+  # Only used for development certs, used by AppCenter to distribute QA builds
+  # Not needed for TestFlight builds
+  desc "Provision new devices and capabilities for QA"
+  lane :renew_test_profile do
+    match(
+      type: 'development',
+      app_identifier: "#{app_bundle_id}.#{test_app_bundle_suffix}",
+      force: true
+    )
+  end
+
+  desc "Provision new devices and capabilities for Development"
+  lane :renew_debug_profile do
+    match(
+      type: 'development',
+      app_identifier: "#{app_bundle_id}",
+      force: true
+    )
+  end
+
+  desc "Provision new devices and capabilities for Beta"
+  lane :renew_beta_profile do
+    match(
+      type: 'appstore',
+      app_identifier: "#{app_bundle_id}.#{beta_app_bundle_suffix}",
+      force: true
+    )
+  end
+
+  desc "Provision new devices and capabilities for Release"
+  lane :renew_release_profile do
+    match(
+      type: 'appstore',
+      app_identifier: "#{app_bundle_id}",
+      force: true
+    )
+  end
+
+  #################################################
+  # Prep Release per type
+  #################################################
+
+  # Set build config based on ENV['RN_RELEASE_TYPE'] value
+  desc "Updates the app identifier, display name and icon for alpha, beta, and production releases"
+  private_lane :prep_release_type_ios do
+    release_settings = prep_release_type_shared(current_platform: "ios")
+
+    # Update iOS app identifier and display name
+    update_info_plist(
+      plist_path: "#{project_name}/Info.plist",
+      xcodeproj: "./ios/#{project_name}.xcodeproj",
+      display_name: release_settings[:app_name],
+      app_identifier: release_settings[:app_id]
+    )
+
+    increment_version_number(
+      version_number: release_settings[:app_version],
+      xcodeproj: "./ios/#{project_name}.xcodeproj",
+    )
+
+    release_settings
+  end
+
+  #################################################
+  # Alpha Build - AppCenter
+  #################################################
+
+  desc "Submit iOS test build to AppCenter"
+  lane :build_alpha_app do
+    ensure_git_status_clean(
+      show_uncommitted_changes: true,
+      show_diff: true,
+    )
+
+    app_center_info = get_appcenter_info
+    appcenter_build_number = app_center_info[:appcenter_build_number]
+
+    increment_build_number(
+      build_number: appcenter_build_number,
+      xcodeproj: "./ios/#{project_name}.xcodeproj",
+    )
+
+    # Set other build settings
+    app_release_settings = prep_release_type_ios
+
+    match(
+      type: 'development',
+      app_identifier: app_release_settings[:app_id]
+    )
+
+    # Build development app with QA config
+    gym(
+      scheme: xcode_scheme,
+      workspace: "./ios/#{project_name}.xcworkspace",
+      configuration: 'QA',
+      export_method: 'development',
+      clean: true,
+      output_directory: xcode_output_dir,
+      output_name: xcode_output_name,
+      include_symbols: true
+    )
+
+    # Upload build to AppCenter
+    appcenter_upload(
+      api_token: ENV["IOS_APPCENTER_API_TOKEN"],
+      owner_name: appcenter_owner_name,
+      app_name: app_release_settings[:app_name],
+      destinations: appcenter_destinations,
+      ipa: "#{xcode_output_dir}/#{xcode_output_name}",
+      release_notes: app_center_info[:release_notes]
+    )
+
+    append_comment_to_jira_ticket(platform: 'iOS', appcenter_build_number: appcenter_build_number)
+
+    # Upload JS sourcemaps to Bugsnag
+    sh("APP_VERSION=#{appcenter_build_number} BUILD_NUMBER=1 yarn upload:sourcemaps:ios")
+  end
+
+  #################################################
+  # Beta Build - TestFlight
+  #################################################
+
+  desc "Submit iOS beta build to TestFlight"
+  lane :build_beta_app do
+    ensure_git_status_clean(
+      show_uncommitted_changes: true,
+      show_diff: true,
+    )
+
+    # Set build settings
+    app_release_settings = prep_release_type_ios
+
+    # Get latest build number from TestFlight - this must be incremented by 1
+    testflight_build_number = latest_testflight_build_number(
+      username: appstore_username,
+      app_identifier: app_release_settings[:app_id]
+    )
+
+    increment_build_number(
+      build_number: testflight_build_number + 1,
+      xcodeproj: "./ios/#{project_name}.xcodeproj"
+    )
+
+    match(
+      type: 'appstore',
+      app_identifier: app_release_settings[:app_id]
+    )
+
+    # Build app-store app with Beta config
+    gym(
+      scheme: xcode_scheme,
+      workspace: "./ios/#{project_name}.xcworkspace",
+      configuration: 'Beta',
+      export_method: 'app-store',
+      clean: true,
+      output_directory: xcode_output_dir,
+      output_name: xcode_output_name,
+      include_symbols: true
+    )
+
+    # Upload build to TestFlight
+    pilot(
+      username: appstore_username,
+      app_identifier: app_release_settings[:app_id],
+      ipa: "#{xcode_output_dir}/#{xcode_output_name}",
+      notify_external_testers: false,
+      apple_id: appstore_beta_app_id,
+      team_id: appstore_team_id,
+      skip_waiting_for_build_processing: true
+    )
+    
+    # Upload JS sourcemaps to Bugsnag
+    sh("APP_VERSION=#{ios_app_version} BUILD_NUMBER=#{lane_context[SharedValues::BUILD_NUMBER]} yarn upload:sourcemaps:ios")
+
+    # upload dsyms
+    download_dsyms(app_identifier: app_release_settings[:app_id], username: appstore_username, build_number: lane_context[SharedValues::BUILD_NUMBER])
+    dsym_path = lane_context[SharedValues::DSYM_PATHS]&.first
+    if dsym_path && !dsym_path&.empty?
+      upload_symbols_to_bugsnag(dsym_path: dsym_path)
+      clean_build_artifacts
+    end
+  end
+
+  #################################################
+  # Release Build - AppStoreConnect
+  #################################################
+
+  desc "Submit iOS release build to TestFlight"
+  lane :build_release_app do
+    ensure_git_status_clean(
+      show_uncommitted_changes: true,
+      show_diff: true,
+    )
+
+    # Set build settings
+    app_release_settings = prep_release_type_ios
+
+    # Get the app version number for git tag
+    version = get_version_number(
+      xcodeproj: "./ios/#{project_name}.xcodeproj",
+      configuration: 'Release'
+    )
+
+    build_number = get_build_number(xcodeproj: "./ios/#{project_name}.xcodeproj")
+
+    # Get latest build number from TestFlight - this must be incremented by 1
+    testflight_build_number = latest_testflight_build_number(
+      username: appstore_username,
+      app_identifier: app_release_settings[:app_id]
+    )
+
+    increment_build_number(
+      build_number: testflight_build_number + 1,
+      xcodeproj: "./ios/#{project_name}.xcodeproj"
+    )
+
+    # Create git tag if the build number has changed (it always should)
+    # UNLESS a previous CI build failed and this is a retry
+    if lane_context[SharedValues::BUILD_NUMBER] != build_number
+      add_git_tag(
+        tag: "builds/ios/rc-" + version + "-" + lane_context[SharedValues::BUILD_NUMBER]
+      )
+
+      push_to_git_remote
+    end
+
+    match(
+      type: 'appstore',
+      app_identifier: app_release_settings[:app_id]
+    )
+
+    # Build app-store app with Release config
+    gym(
+      scheme: xcode_scheme,
+      workspace: "./ios/#{project_name}.xcworkspace",
+      configuration: 'Release',
+      export_method: 'app-store',
+      clean: true,
+      output_directory: xcode_output_dir,
+      output_name: xcode_output_name,
+      include_symbols: true
+    )
+
+    # Upload build to TestFlight
+    pilot(
+      username: appstore_username,
+      app_identifier: app_release_settings[:app_id],
+      ipa: "#{xcode_output_dir}/#{xcode_output_name}",
+      notify_external_testers: false,
+      apple_id: appstore_app_id,
+      team_id: appstore_team_id,
+      skip_waiting_for_build_processing: true
+    )
+
+
+    # Upload JS sourcemaps to Bugsnag
+    sh("APP_VERSION=#{ios_app_version} BUILD_NUMBER=#{lane_context[SharedValues::BUILD_NUMBER]} yarn upload:sourcemaps:ios")
+
+    # upload dsyms
+    download_dsyms(username: appstore_username, build_number: lane_context[SharedValues::BUILD_NUMBER])
+    dsym_path = lane_context[SharedValues::DSYM_PATHS]&.first
+    if dsym_path && !dsym_path&.empty?
+      upload_symbols_to_bugsnag(dsym_path: dsym_path)
+      clean_build_artifacts
+    end
+  end
+end
+
+#################################################
+## Android Lanes
+#################################################
+
+platform :android do
+
+  #################################################
+  # Config
+  #################################################
+  android_output_dir = "android/app/build/outputs/apk"
+  android_bundle_output_dir = "android/app/build/outputs/bundle"
+
+  #################################################
+  # Prep Release per type
+  #################################################
+
+  # Set build config based on ENV['RN_RELEASE_TYPE'] value
+  desc "Updates the app identifier, display name and icon for alpha, beta, and production releases"
+  private_lane :prep_release_type_android do
+    release_settings = prep_release_type_shared(current_platform: "android")
+
+    # Set APK output name
+    set_value_in_build(
+      app_project_dir: "./android/app",
+      key: "archivesBaseName",
+      value: "#{release_settings[:app_name]}"
+    )
+
+    update_android_strings(
+      block: lambda { |strings|
+        strings['app_name'] = release_settings[:app_name]
+      }
+    )
+
+    # Set Android Version Name
+    android_set_version_name(
+      version_name: release_settings[:app_version],
+      gradle_file: "./android/app/build.gradle"
+    )
+
+    release_settings
+  end
+
+
+  #################################################
+  # Alpha Build - AppCenter
+  #################################################
+
+  desc "Submit Android test build to AppCenter"
+  lane :build_alpha_app do
+    ensure_git_status_clean(
+      show_uncommitted_changes: true,
+      show_diff: true,
+    )
+
+    # Set other build settings
+    app_release_settings = prep_release_type_android
+
+    app_center_info = get_appcenter_info
+    appcenter_build_number = app_center_info[:appcenter_build_number]
+
+    # Set Android Version Name
+    android_set_version_name(
+      version_name: appcenter_build_number,
+      gradle_file: "./android/app/build.gradle"
+    )
+
+    # Build development app with QA config
+    gradle(
+      tasks: ["clean", "assembleAlpha"],
+      project_dir: "android/",
+    )
+
+    # alpha, beta, release, development
+    type = ENV['RN_RELEASE_TYPE']
+    apk_name = "#{type}/#{app_display_name}-#{type}.apk"
+
+    # Upload build to AppCenter
+    appcenter_upload(
+      api_token: ENV["ANDROID_APPCENTER_API_TOKEN"],
+      owner_name: appcenter_owner_name,
+      app_name: "#{app_release_settings[:app_name]}-Android",
+      destinations: appcenter_destinations,
+      apk: "#{android_output_dir}/#{apk_name}",
+      release_notes: app_center_info[:release_notes]
+    )
+
+    append_comment_to_jira_ticket(platform: 'Android', appcenter_build_number: appcenter_build_number)
+
+    # Upload JS sourcemaps to Bugsnag
+    sh("APP_VERSION=#{appcenter_build_number} BUILD_NUMBER=1 yarn upload:sourcemaps:android")
+  end
+
+  #################################################
+  # Beta Build - Google Play Beta
+  #################################################
+
+  desc "Submit Android beta build to Google Play Beta"
+  lane :build_beta_app do
+    ensure_git_status_clean(
+      show_uncommitted_changes: true,
+      show_diff: true,
+    )
+
+    # Set other build settings
+    app_release_settings = prep_release_type_android
+
+    # Get latest version code from Google Play Store - this must be incremented by 1
+    playstore_version_code = google_play_track_version_codes(
+      package_name: app_release_settings[:app_id],
+      track: 'internal',
+      json_key_data: ENV['SUPPLY_JSON_KEY_DATA']
+    )[0]
+
+    # Set Android Version Code
+    latest_version_code = playstore_version_code + 1
+    android_set_version_code(
+      version_code: latest_version_code,
+      gradle_file: "./android/app/build.gradle"
+    )
+
+    # Build development app with Beta config
+    gradle(
+      tasks: ["clean", "bundleBeta"],
+      project_dir: "android/",
+    )
+
+    # alpha, beta, release, development
+    type = ENV['RN_RELEASE_TYPE']
+    aab_name = "#{type}/#{app_display_name}-#{type}.aab"
+
+    # Upload build to Google Play Store
+
+    # You can see all options available running:
+    # => bundle exec fastlane action upload_to_play_store
+
+    # SUPPLY_JSON_KEY_DATA environment variable contains the necessary data
+    # to communicate with Google Play Store
+
+    upload_to_play_store(
+      track: 'internal', # The available tracks are: production, beta, alpha, internal
+      package_name: app_release_settings[:app_id],
+      rollout: '1',
+      aab: "#{android_bundle_output_dir}/#{aab_name}",
+    )
+    
+    # Upload JS sourcemaps to Bugsnag
+    sh("APP_VERSION=#{android_app_version} BUILD_NUMBER=#{latest_version_code} yarn upload:sourcemaps:android")
+  end
+
+  #################################################
+  # Release Build - Google Play Store
+  #################################################
+
+  desc "Submit Android release build to Google Play Store"
+  lane :build_release_app do
+    ensure_git_status_clean(
+      show_uncommitted_changes: true,
+      show_diff: true,
+    )
+
+    # Set other build settings
+    app_release_settings = prep_release_type_android
+
+    # Get latest version code from Google Play Store - this must be incremented by 1
+    playstore_version_code = google_play_track_version_codes(
+      package_name: app_release_settings[:app_id],
+      track: 'internal',
+      json_key_data: ENV['SUPPLY_JSON_KEY_DATA']
+    )[0]
+
+    # Set Android Version Code
+    incremented_version_code = playstore_version_code + 1
+    android_set_version_code(
+      version_code: incremented_version_code,
+      gradle_file: "./android/app/build.gradle"
+    )
+
+    # Create git tag if the build number has changed (it always should)
+    # UNLESS a previous CI build failed and this is a retry
+    version = app_release_settings[:app_version]
+    lane_version_code = lane_context[SharedValues::ANDROID_NEW_VERSION_CODE]
+    if lane_version_code != incremented_version_code
+      sh("git", "config", "user.email", "circleci@circleci")
+      sh("git", "config", "user.name", "CircleCI")
+
+      add_git_tag(
+        tag: "builds/android/rc-" + version + "-" + "#{lane_version_code.to_i}"
+      )
+
+      push_to_git_remote
+    end
+
+    # Build development app with Release config
+    gradle(
+      tasks: ["clean", "bundleRelease"],
+      project_dir: "android/",
+    )
+
+    # alpha, beta, release, development
+    type = ENV['RN_RELEASE_TYPE']
+    aab_name = "#{type}/#{app_display_name}-#{type}.aab"
+
+    # Upload build to Google Play Store
+
+    # You can see all options available running:
+    # => bundle exec fastlane action upload_to_play_store
+
+    # SUPPLY_JSON_KEY_DATA environment variable contains the necessary data
+    # to communicate with Google Play Store
+
+    upload_to_play_store(
+      track: 'internal', # We release to internal and then manually promote it to Production in Google Play Console
+      package_name: app_release_settings[:app_id],
+      rollout: '1',
+      aab: "#{android_bundle_output_dir}/#{aab_name}",
+    )
+
+    # Upload JS sourcemaps to Bugsnag
+    sh("APP_VERSION=#{android_app_version} BUILD_NUMBER=#{incremented_version_code} yarn upload:sourcemaps:android")
+  end
+end

@@ -1,0 +1,23 @@
++---------------------+--------------------------------+--------------------------------+
+|                            Installed Provisioning Profile                             |
++---------------------+--------------------------------+--------------------------------+
+| Parameter           | Environment Variable           | Value                          |
++---------------------+--------------------------------+--------------------------------+
+| App Identifier      |                                | com.reacttest.app              |
+| Type                |                                | development                    |
+| Platform            |                                | ios                            |
+| Profile UUID        | sigh_com.reacttest.app_develo  | eebfb05b-20b6-4067-85e4-aba97  |
+|                     | pment                          | b1829a4                        |
+| Profile Name        | sigh_com.reacttest.app_develo  | match Development              |
+|                     | pment_profile-name             | com.reacttest.app              |
+| Profile Path        | sigh_com.reacttest.app_develo  | /Users/juank/Library/MobileDe  |
+|                     | pment_profile-path             | vice/Provisioning              |
+|                     |                                | Profiles/eebfb05b-20b6-4067-8  |
+|                     |                                | 5e4-aba97b1829a4.mobileprovis  |
+|                     |                                | ion                            |
+| Development Team ID | sigh_com.reacttest.app_develo  | 8CHV89DLFB                     |
+|                     | pment_team-id                  |                                |
+| Certificate Name    | sigh_com.reacttest.app_develo  | Apple Development: Juan        |
+|                     | pment_certificate-name         | Carlos Loaiza (6Q9P7XAS4A)     |
++---------------------+--------------------------------+--------------------------------+
+/Users/juank/Library/MobileDevice/
