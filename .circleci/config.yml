@@ -33,14 +33,6 @@ jobs:
           paths:
             - node_modules
 
-      # - run:
-      #     name: jest tests
-      #     command: |
-      #       mkdir -p test-results/jest
-      #       yarn run test
-      #     environment:
-      #       JEST_JUNIT_OUTPUT: test-results/jest/junit.xml
-
       - persist_to_workspace:
           root: ~/ReactNaviteProject
           paths:
@@ -59,9 +51,9 @@ jobs:
     resource_class: macos.x86.medium.gen2
 
     environment:
-      FL_OUTPUT_DIR: output
-      FASTLANE_LANE_TEST: test_ios
-      FASTLANE_LANE_BUILD: build_alpha_app
+      LC_ALL: "en_US.UTF-8"
+      LANG: "en_US.UTF-8"
+      HOMEBREW_NO_AUTO_UPDATE: 1
     
     shell: /bin/bash --login -o pipefail
 
@@ -121,6 +113,76 @@ jobs:
           
       - store_test_results:
           path: ./build/scan
+
+  ios_beta:
+    working_directory: ~/ReactNaviteProject
+    macos:
+      xcode: "14.2.0"
+    resource_class: macos.x86.medium.gen2
+
+    environment:
+      LC_ALL: "en_US.UTF-8"
+      LANG: "en_US.UTF-8"
+      HOMEBREW_NO_AUTO_UPDATE: 1
+    
+    shell: /bin/bash --login -o pipefail
+
+    steps:
+      - checkout
+      - restore_cache:
+          key: yarn-v1-{{ checksum "yarn.lock" }}-{{ arch }}
+
+      - restore_cache:
+          key: node-v1-{{ checksum "package.json" }}-{{ arch }}
+
+      - run: yarn install
+
+      - save_cache:
+          key: yarn-v1-{{ checksum "yarn.lock" }}-{{ arch }}
+          paths:
+            - ~/.cache/yarn
+
+      - save_cache:
+          key: node-v1-{{ checksum "package.json" }}-{{ arch }}
+          paths:
+            - node_modules
+
+      #Pods directory is ignored to match default RN setup, but can also check them into source control
+      #https://guides.cocoapods.org/using/using-cocoapods.html#should-i-check-the-pods-directory-into-source-control
+      - restore_cache:
+          key: pods-v1-{{ checksum "ios/Podfile.lock" }}-{{ arch }}
+
+      - run: 
+          command: pod install
+          working_directory: ios
+
+      - save_cache:
+          key: pods-v1-{{ checksum "ios/Podfile.lock" }}-{{ arch }}
+          paths:
+            - ios/Pods
+
+      - restore_cache:
+          key: bundle-v1-{{ checksum "ios/Gemfile.lock" }}-{{ arch }}
+
+      - run: 
+          command: bundle install
+          working_directory: ios
+
+      - save_cache:
+          key: bundle-v1-{{ checksum "ios/Gemfile.lock" }}-{{ arch }}
+          paths:
+            - vendor/bundle
+
+      - run:
+          name: Build the iOS app
+          command: bundle exec fastlane deploy_ios_beta_app
+          working_directory: ios    
+
+      - store_artifacts:
+          path: ./build/ReactNativeProject.ipa
+          
+      - store_test_results:
+          path: ./build/scan
             
   android-build-and-test:
     working_directory: ~/ReactNaviteProject/android
@@ -161,9 +223,6 @@ workflows:
   feature_test:
     jobs:
       - node
-      #- android-build-and-test:
-      #    requires:
-      #      - node
       - ios_alpha:
           requires:
             - node

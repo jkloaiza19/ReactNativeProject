@@ -100,6 +100,7 @@ platform :ios do
   xcode_scheme = "ReactNativeProject"
   xcode_output_dir = "./build"
   xcode_output_name = "ReactNativeProject.ipa"
+  xcode_xcodeproj = "ReactNativeProject.xcodeproj"
   ipa_dir =  "#{xcode_output_dir}/#{xcode_output_name}"
 
   appstore_username = "jkloaiza19@gmail.com"
@@ -120,50 +121,43 @@ platform :ios do
   # specifying the type as "appstore" and the app identifier as "com.reacttest.app".
   # The `readonly` option is set to true, indicating that the certificates
   # and profiles should not be modified.
-  desc 'Fetch certificates and provisioning profiles'
+  desc 'Fetch certificates and provisioning profiles to run locally'
   lane :certificates do
     match(
       type: 'development',
-      app_identifier: 'com.reacttest.app',
+      app_identifier: app_bundle_id,
       force: true
-      # readonly: true
     )
   end
 
-  # desc "Fetch certificates. Build the iOS application."
-  # lane :build_ios_app do |options|
-
-
-  #   gym(
-  #     scheme: "ReactNativeProject",
-  #     workspace: "./#{project_name}.xcworkspace",
-  #     export_method: 'ad-hoc',
-  #     configuration: 'Release',
-  #     output_directory: xcode_output_dir,
-  #     output_name: xcode_output_name,
-  #     include_symbols: true,
-  #     clean: true
-  #   )
-  # end
-
-  desc "Deploy the iOS alpha app to AppCenter."
-  lane :deploy_ios_alpha_app do
+  desc 'Fetch certificates and provisioning profiles'
+  private_lane :fetch_ios_certificates do |options|
     match(
-      type: 'adhoc',
-      app_identifier: 'com.reacttest.app',
+      type: options[:type],
+      app_identifier: app_bundle_id,
       readonly: true
     )
-    
+  end
+
+  desc "Build the iOS application."
+  private_lane :build_ios_app do |options|
     gym(
       scheme: "ReactNativeProject",
       workspace: "./#{project_name}.xcworkspace",
-      export_method: 'ad-hoc',
-      configuration: 'Debug',
+      export_method: options[:export_method],
+      configuration: options[:configuration],
       output_directory: xcode_output_dir,
       output_name: xcode_output_name,
       include_symbols: true,
       clean: true
     )
+  end
+
+  desc "Deploy the iOS alpha app to AppCenter."
+  lane :deploy_ios_alpha_app do
+    fetch_ios_certificates(type: 'adhoc')
+
+    build_ios_app(export_method: 'ad-hoc', configuration: 'Alpha')
 
     # Upload build to AppCenter
     appcenter_upload(
@@ -183,8 +177,21 @@ platform :ios do
 
   desc "Deploy iOS beta app to Testflight."
   lane :deploy_ios_beta_app do
-    # match here
-    # gym here
+    # Get the version number from the project and check against
+    # the latest build already available on App Store Connect, then
+    # increase the build number by 1. If no build is available
+    # for that version, then start at 1
+    increment_build_number(
+      build_number: app_store_build_number(
+        initial_build_number: 1,
+        version: get_version_number(xcodeproj: xcode_xcodeproj),
+        live: false
+      ) + 1,
+    )
+    
+    fetch_ios_certificates(type: 'appstore')
+   
+    build_ios_app(export_method: 'app-store', configuration: 'Beta')
 
     app_store_connect_api_key
 
@@ -193,12 +200,11 @@ platform :ios do
       # username: appstore_username,
       app_identifier: app_release_settings[:app_id],
       ipa: "#{xcode_output_dir}/#{xcode_output_name}",
-      groups: ["Testers"],
       notify_external_testers: false,
       # apple_id: appstore_beta_app_id,
       # team_id: appstore_team_id,
-      skip_waiting_for_build_processing: true,
-      distribute_external: true
+      skip_waiting_for_build_processing: true
+      # distribute_external: true
     )
   end
 
