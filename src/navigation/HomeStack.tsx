@@ -4,7 +4,7 @@ import { getHeaderTitle } from '@react-navigation/elements'
 // screen
 import Home from '../screens/Home'
 import Settings from '../screens/Settings'
-import PlacesScreen  from '../screens/Places/Places'
+import PlacesScreen  from '../screens/Places'
 
 // components
 import NavigationHeader from '../components/NavigationHeader'
