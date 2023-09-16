@@ -26,6 +26,9 @@ import { fas } from '@fortawesome/free-solid-svg-icons'
 import { faSquareCheck } from '@fortawesome/free-solid-svg-icons/faSquareCheck'
 import { faMugSaucer } from '@fortawesome/free-solid-svg-icons/faMugSaucer'
 
+// graphql
+import { ApolloClient, InMemoryCache, ApolloProvider } from '@apollo/client'
+
 import RootNavigation from './src/navigation/RootNavigation'
 import { Provider } from 'react-redux'
 import store from './store'
@@ -37,6 +40,12 @@ type SectionProps = PropsWithChildren<{
 // Register fontAwesome icons
 library.add(fab, fas, faSquareCheck, faMugSaucer)
 
+// Initialize Apollo Client
+const client = new ApolloClient({
+  uri: 'localhost:3002/graphql',
+  cache: new InMemoryCache()
+})
+
 function App(): JSX.Element {
   const isDarkMode = useColorScheme() === 'dark'
 
@@ -46,7 +55,9 @@ function App(): JSX.Element {
         barStyle={isDarkMode ? 'light-content' : 'dark-content'}
       />
         <Provider store={store}>
+          <ApolloProvider client={client}>
             <RootNavigation />
+          </ApolloProvider>
         </Provider>
     </SafeAreaProvider> 
   )

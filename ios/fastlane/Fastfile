@@ -39,6 +39,7 @@ app_display_name = "myapp"
 test_app_bundle_suffix = "test"
 beta_app_bundle_suffix = "beta"
 app_bundle_id = "com.reacttest.app"
+fire_base_app_id = "1:1038569846848:ios:c0131abda241acdcad07a5"
 
 #################################################
 # Shared lanes
@@ -139,7 +140,7 @@ platform :ios do
     )
   end
 
-  desc "Build the iOS application."
+  desc "Build the iOS alpha application and deploy to AppCenter"
   private_lane :build_ios_app do |options|
     gym(
       scheme: "ReactNativeProject",
@@ -168,6 +169,23 @@ platform :ios do
       ipa: ipa_dir,
       release_notes: 'Add AppCenter builds for fastlane'
       # release_notes: app_center_info[:release_notes]
+    )
+  end
+
+  desc "Deploy the iOS alpha app to Firebase."
+  lane :deploy_ios_alpha_app_fire_base do
+    fetch_ios_certificates(type: 'adhoc')
+
+    build_ios_app(export_method: 'ad-hoc', configuration: 'Alpha')
+
+    increment_build_number(
+      build_number: "$CIRCLE_BUILD_NUM"
+    )
+
+    # Upload build to Firebase
+    firebase_app_distribution(
+      app: fire_base_app_id,
+      release_notes: 'Add AppCenter builds for fastlane'
     )
   end
 

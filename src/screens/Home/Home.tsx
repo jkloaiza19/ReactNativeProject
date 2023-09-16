@@ -10,6 +10,9 @@ import { IHomeComponentProps } from './schema'
 // constants
 import { SETTINGS_SCREEN, PLACES_SCREEN } from '../../navigation/_common/routes'
 
+// graphql
+import { gql, useQuery } from '@apollo/client'
+
 // styles
 import styles from './Home.styles'
 
@@ -19,18 +22,29 @@ export const Home: React.FC<IHomeComponentProps> = ({
   fetchUser,
   signOut,
 }): JSX.Element  => {
-  // useEffect(() => {
-  //   if (!user.loaded) {
-  //     fetchUser({ id: 1 })
-  //   }
-  // }, [])
-
   const goToSettings = () => navigation.navigate(SETTINGS_SCREEN.name)
   const goToPlaces = () => navigation.navigate(PLACES_SCREEN.name)
+
+  const usersQuery = gql(`
+    query {
+      users {
+        users {
+          _id
+          name
+          email
+          status
+        }
+        totalUsers
+      }
+    }
+
+  `)
 
   const logOut = () => {
     signOut()
   }
+
+  const { data, loading } = useQuery(usersQuery)
 
   return (
     <View style={styles.homeContainer}>
