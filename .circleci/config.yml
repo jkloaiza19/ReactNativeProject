@@ -103,10 +103,19 @@ jobs:
           paths:
             - vendor/bundle
 
+      - run: echo 'chruby ruby-2.6' >> ~/.bash_profile
+      - run: bundle install
+      - run: curl -sL https://firebase.tools | bash
+
       - run:
-          name: Build the iOS app
-          command: bundle exec fastlane deploy_ios_alpha_app
-          working_directory: ios    
+          name: Build and deploy the iOS app to Firebase
+          command: bundle exec fastlane deploy_ios_alpha_app_fire_base
+          working_directory: ios
+
+      # - run:
+      #     name: Build the iOS app
+      #     command: bundle exec fastlane deploy_ios_alpha_app
+      #     working_directory: ios    
 
       - store_artifacts:
           path: ./build/ReactNativeProject.ipa

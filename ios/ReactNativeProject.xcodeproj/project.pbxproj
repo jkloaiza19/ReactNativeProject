@@ -15,6 +15,13 @@
 		7699B88040F8A987B510C191 /* libPods-ReactNativeProject-ReactNativeProjectTests.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 19F6CBCC0A4E27FBF8BF4A61 /* libPods-ReactNativeProject-ReactNativeProjectTests.a */; };
 		81AB9BB82411601600AC10FF /* LaunchScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 81AB9BB72411601600AC10FF /* LaunchScreen.storyboard */; };
 		AD18CDCD2A6A530200C2B226 /* Fonts in Resources */ = {isa = PBXBuildFile; fileRef = AD18CDCC2A6A530200C2B226 /* Fonts */; };
+		AD18CDDF2AB5664D00C2B226 /* FirebaseAnalytics in Frameworks */ = {isa = PBXBuildFile; productRef = AD18CDDE2AB5664D00C2B226 /* FirebaseAnalytics */; };
+		AD18CDE12AB5664D00C2B226 /* FirebaseAnalyticsWithoutAdIdSupport in Frameworks */ = {isa = PBXBuildFile; productRef = AD18CDE02AB5664D00C2B226 /* FirebaseAnalyticsWithoutAdIdSupport */; };
+		AD18CDE32AB5664D00C2B226 /* FirebaseAppCheck in Frameworks */ = {isa = PBXBuildFile; productRef = AD18CDE22AB5664D00C2B226 /* FirebaseAppCheck */; };
+		AD18CDE52AB5664D00C2B226 /* FirebaseAppDistribution-Beta in Frameworks */ = {isa = PBXBuildFile; productRef = AD18CDE42AB5664D00C2B226 /* FirebaseAppDistribution-Beta */; };
+		AD18CDE72AB5664D00C2B226 /* FirebaseAuth in Frameworks */ = {isa = PBXBuildFile; productRef = AD18CDE62AB5664D00C2B226 /* FirebaseAuth */; };
+		AD18CDE92AB5664D00C2B226 /* FirebaseDatabase in Frameworks */ = {isa = PBXBuildFile; productRef = AD18CDE82AB5664D00C2B226 /* FirebaseDatabase */; };
+		AD18CDEB2AB5664D00C2B226 /* FirebaseFirestore in Frameworks */ = {isa = PBXBuildFile; productRef = AD18CDEA2AB5664D00C2B226 /* FirebaseFirestore */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -38,13 +45,17 @@
 		13B07FB61A68108700A75B9A /* Info.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; name = Info.plist; path = ReactNativeProject/Info.plist; sourceTree = "<group>"; };
 		13B07FB71A68108700A75B9A /* main.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; name = main.m; path = ReactNativeProject/main.m; sourceTree = "<group>"; };
 		19F6CBCC0A4E27FBF8BF4A61 /* libPods-ReactNativeProject-ReactNativeProjectTests.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = "libPods-ReactNativeProject-ReactNativeProjectTests.a"; sourceTree = BUILT_PRODUCTS_DIR; };
+		3756640B5358114FD8824913 /* Pods-ReactNativeProject.beta.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-ReactNativeProject.beta.xcconfig"; path = "Target Support Files/Pods-ReactNativeProject/Pods-ReactNativeProject.beta.xcconfig"; sourceTree = "<group>"; };
 		3B4392A12AC88292D35C810B /* Pods-ReactNativeProject.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-ReactNativeProject.debug.xcconfig"; path = "Target Support Files/Pods-ReactNativeProject/Pods-ReactNativeProject.debug.xcconfig"; sourceTree = "<group>"; };
 		5709B34CF0A7D63546082F79 /* Pods-ReactNativeProject.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-ReactNativeProject.release.xcconfig"; path = "Target Support Files/Pods-ReactNativeProject/Pods-ReactNativeProject.release.xcconfig"; sourceTree = "<group>"; };
 		5B7EB9410499542E8C5724F5 /* Pods-ReactNativeProject-ReactNativeProjectTests.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-ReactNativeProject-ReactNativeProjectTests.debug.xcconfig"; path = "Target Support Files/Pods-ReactNativeProject-ReactNativeProjectTests/Pods-ReactNativeProject-ReactNativeProjectTests.debug.xcconfig"; sourceTree = "<group>"; };
 		5DCACB8F33CDC322A6C60F78 /* libPods-ReactNativeProject.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = "libPods-ReactNativeProject.a"; sourceTree = BUILT_PRODUCTS_DIR; };
+		63CF512B61E90BF532C48B94 /* Pods-ReactNativeProject.alpha.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-ReactNativeProject.alpha.xcconfig"; path = "Target Support Files/Pods-ReactNativeProject/Pods-ReactNativeProject.alpha.xcconfig"; sourceTree = "<group>"; };
 		81AB9BB72411601600AC10FF /* LaunchScreen.storyboard */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = file.storyboard; name = LaunchScreen.storyboard; path = ReactNativeProject/LaunchScreen.storyboard; sourceTree = "<group>"; };
 		89C6BE57DB24E9ADA2F236DE /* Pods-ReactNativeProject-ReactNativeProjectTests.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-ReactNativeProject-ReactNativeProjectTests.release.xcconfig"; path = "Target Support Files/Pods-ReactNativeProject-ReactNativeProjectTests/Pods-ReactNativeProject-ReactNativeProjectTests.release.xcconfig"; sourceTree = "<group>"; };
 		AD18CDCC2A6A530200C2B226 /* Fonts */ = {isa = PBXFileReference; lastKnownFileType = folder; name = Fonts; path = "../node_modules/react-native-vector-icons/Fonts"; sourceTree = "<group>"; };
+		C2D095C71CFF488AD062246B /* Pods-ReactNativeProject-ReactNativeProjectTests.beta.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-ReactNativeProject-ReactNativeProjectTests.beta.xcconfig"; path = "Target Support Files/Pods-ReactNativeProject-ReactNativeProjectTests/Pods-ReactNativeProject-ReactNativeProjectTests.beta.xcconfig"; sourceTree = "<group>"; };
+		E8B1AA704B6C5A8E241B25C9 /* Pods-ReactNativeProject-ReactNativeProjectTests.alpha.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-ReactNativeProject-ReactNativeProjectTests.alpha.xcconfig"; path = "Target Support Files/Pods-ReactNativeProject-ReactNativeProjectTests/Pods-ReactNativeProject-ReactNativeProjectTests.alpha.xcconfig"; sourceTree = "<group>"; };
 		ED297162215061F000B7C4FE /* JavaScriptCore.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = JavaScriptCore.framework; path = System/Library/Frameworks/JavaScriptCore.framework; sourceTree = SDKROOT; };
 /* End PBXFileReference section */
 
@@ -61,6 +72,13 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				AD18CDE32AB5664D00C2B226 /* FirebaseAppCheck in Frameworks */,
+				AD18CDE72AB5664D00C2B226 /* FirebaseAuth in Frameworks */,
+				AD18CDDF2AB5664D00C2B226 /* FirebaseAnalytics in Frameworks */,
+				AD18CDE52AB5664D00C2B226 /* FirebaseAppDistribution-Beta in Frameworks */,
+				AD18CDE12AB5664D00C2B226 /* FirebaseAnalyticsWithoutAdIdSupport in Frameworks */,
+				AD18CDEB2AB5664D00C2B226 /* FirebaseFirestore in Frameworks */,
+				AD18CDE92AB5664D00C2B226 /* FirebaseDatabase in Frameworks */,
 				0C80B921A6F3F58F76C31292 /* libPods-ReactNativeProject.a in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -147,6 +165,10 @@
 				5709B34CF0A7D63546082F79 /* Pods-ReactNativeProject.release.xcconfig */,
 				5B7EB9410499542E8C5724F5 /* Pods-ReactNativeProject-ReactNativeProjectTests.debug.xcconfig */,
 				89C6BE57DB24E9ADA2F236DE /* Pods-ReactNativeProject-ReactNativeProjectTests.release.xcconfig */,
+				63CF512B61E90BF532C48B94 /* Pods-ReactNativeProject.alpha.xcconfig */,
+				3756640B5358114FD8824913 /* Pods-ReactNativeProject.beta.xcconfig */,
+				E8B1AA704B6C5A8E241B25C9 /* Pods-ReactNativeProject-ReactNativeProjectTests.alpha.xcconfig */,
+				C2D095C71CFF488AD062246B /* Pods-ReactNativeProject-ReactNativeProjectTests.beta.xcconfig */,
 			);
 			path = Pods;
 			sourceTree = "<group>";
@@ -193,6 +215,15 @@
 			dependencies = (
 			);
 			name = ReactNativeProject;
+			packageProductDependencies = (
+				AD18CDDE2AB5664D00C2B226 /* FirebaseAnalytics */,
+				AD18CDE02AB5664D00C2B226 /* FirebaseAnalyticsWithoutAdIdSupport */,
+				AD18CDE22AB5664D00C2B226 /* FirebaseAppCheck */,
+				AD18CDE42AB5664D00C2B226 /* FirebaseAppDistribution-Beta */,
+				AD18CDE62AB5664D00C2B226 /* FirebaseAuth */,
+				AD18CDE82AB5664D00C2B226 /* FirebaseDatabase */,
+				AD18CDEA2AB5664D00C2B226 /* FirebaseFirestore */,
+			);
 			productName = ReactNativeProject;
 			productReference = 13B07F961A680F5B00A75B9A /* ReactNativeProject.app */;
 			productType = "com.apple.product-type.application";
@@ -223,6 +254,9 @@
 				Base,
 			);
 			mainGroup = 83CBB9F61A601CBA00E9B192;
+			packageReferences = (
+				AD18CDDD2AB5664C00C2B226 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */,
+			);
 			productRefGroup = 83CBBA001A601CBA00E9B192 /* Products */;
 			projectDirPath = "";
 			projectRoot = "";
@@ -773,7 +807,7 @@
 		};
 		AD18CDD82AAEF7BA00C2B226 /* Beta */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = 5709B34CF0A7D63546082F79 /* Pods-ReactNativeProject.release.xcconfig */;
+			baseConfigurationReference = 3756640B5358114FD8824913 /* Pods-ReactNativeProject.beta.xcconfig */;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CLANG_ENABLE_MODULES = YES;
@@ -807,7 +841,7 @@
 		};
 		AD18CDD92AAEF7BA00C2B226 /* Beta */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = 89C6BE57DB24E9ADA2F236DE /* Pods-ReactNativeProject-ReactNativeProjectTests.release.xcconfig */;
+			baseConfigurationReference = C2D095C71CFF488AD062246B /* Pods-ReactNativeProject-ReactNativeProjectTests.beta.xcconfig */;
 			buildSettings = {
 				BUNDLE_LOADER = "$(TEST_HOST)";
 				CODE_SIGN_IDENTITY = "Apple Development";
@@ -913,7 +947,7 @@
 		};
 		AD18CDDB2AB00F5100C2B226 /* Alpha */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = 3B4392A12AC88292D35C810B /* Pods-ReactNativeProject.debug.xcconfig */;
+			baseConfigurationReference = 63CF512B61E90BF532C48B94 /* Pods-ReactNativeProject.alpha.xcconfig */;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CLANG_ENABLE_MODULES = YES;
@@ -947,7 +981,7 @@
 		};
 		AD18CDDC2AB00F5100C2B226 /* Alpha */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = 5B7EB9410499542E8C5724F5 /* Pods-ReactNativeProject-ReactNativeProjectTests.debug.xcconfig */;
+			baseConfigurationReference = E8B1AA704B6C5A8E241B25C9 /* Pods-ReactNativeProject-ReactNativeProjectTests.alpha.xcconfig */;
 			buildSettings = {
 				BUNDLE_LOADER = "$(TEST_HOST)";
 				CODE_SIGN_IDENTITY = "Apple Development";
@@ -1015,6 +1049,55 @@
 			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+		AD18CDDD2AB5664C00C2B226 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/firebase/firebase-ios-sdk";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 9.0.0;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		AD18CDDE2AB5664D00C2B226 /* FirebaseAnalytics */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = AD18CDDD2AB5664C00C2B226 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
+			productName = FirebaseAnalytics;
+		};
+		AD18CDE02AB5664D00C2B226 /* FirebaseAnalyticsWithoutAdIdSupport */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = AD18CDDD2AB5664C00C2B226 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
+			productName = FirebaseAnalyticsWithoutAdIdSupport;
+		};
+		AD18CDE22AB5664D00C2B226 /* FirebaseAppCheck */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = AD18CDDD2AB5664C00C2B226 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
+			productName = FirebaseAppCheck;
+		};
+		AD18CDE42AB5664D00C2B226 /* FirebaseAppDistribution-Beta */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = AD18CDDD2AB5664C00C2B226 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
+			productName = "FirebaseAppDistribution-Beta";
+		};
+		AD18CDE62AB5664D00C2B226 /* FirebaseAuth */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = AD18CDDD2AB5664C00C2B226 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
+			productName = FirebaseAuth;
+		};
+		AD18CDE82AB5664D00C2B226 /* FirebaseDatabase */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = AD18CDDD2AB5664C00C2B226 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
+			productName = FirebaseDatabase;
+		};
+		AD18CDEA2AB5664D00C2B226 /* FirebaseFirestore */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = AD18CDDD2AB5664C00C2B226 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
+			productName = FirebaseFirestore;
+		};
+/* End XCSwiftPackageProductDependency section */
 	};
 	rootObject = 83CBB9F71A601CBA00E9B192 /* Project object */;
 }
